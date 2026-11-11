@@ -10,6 +10,7 @@ import numpy as np
 from sqlalchemy import func, insert, select
 from sqlalchemy.orm import Session
 
+from backend.app.alerts import evaluate_alert_rules
 from backend.app.anomaly import (
     detect_series,
     evaluate_holdout,
@@ -22,7 +23,16 @@ from backend.app.anomaly import (
     write_metrics_json,
 )
 from backend.app.config import DEMO_EMAIL, DEMO_NAME, DEMO_PASSWORD
-from backend.app.models import Anomaly, Incident, MetricSample, Service, User
+from backend.app.models import (
+    AlertRule,
+    Anomaly,
+    Incident,
+    IncidentComment,
+    MetricSample,
+    Service,
+    ServiceSlo,
+    User,
+)
 from backend.app.security import hash_password
 
 log = logging.getLogger("intelliops.seed")
@@ -171,6 +181,62 @@ HISTORICAL_INCIDENTS = [
     },
 ]
 
+# Above the calm synthetic baseline, below the injected cliffs and error bursts.
+SLO_TARGETS = {
+    "api-gateway": {"latency_ms": 250.0, "error_rate": 0.02},
+    "checkout-api": {"latency_ms": 300.0, "error_rate": 0.02},
+    "auth-service": {"latency_ms": 150.0, "error_rate": 0.02},
+    "inventory-db": {"latency_ms": 80.0, "error_rate": 0.01},
+    "search-indexer": {"latency_ms": 500.0, "error_rate": 0.03},
+    "notification-worker": {"latency_ms": 400.0, "error_rate": 0.02},
+}
+DEFAULT_SLO = {"latency_ms": 500.0, "error_rate": 0.05}
+
+ALERT_RULES = [
+    {
+        "name": "Error rate above 5%",
+        "metric": "error_rate",
+        "comparator": "gt",
+        "threshold": 0.05,
+        "consecutive": 3,
+    },
+    {
+        "name": "Latency above 800 ms",
+        "metric": "latency_ms",
+        "comparator": "gt",
+        "threshold": 800.0,
+        "consecutive": 3,
+    },
+    {
+        "name": "CPU above 90%",
+        "metric": "cpu",
+        "comparator": "gt",
+        "threshold": 90.0,
+        "consecutive": 3,
+    },
+]
+
+SEEDED_COMMENTS = [
+    {
+        "title": "Checkout error burst after tax-rule deploy",
+        "author": DEMO_EMAIL,
+        "body": "Synthetic note. The tax-rule pack was the only change in that window.",
+        "minutes_after": 25,
+    },
+    {
+        "title": "Gateway latency cliff from a stalled auth dependency",
+        "author": DEMO_EMAIL,
+        "body": "Synthetic note. The auth connection pool was the dependency that stalled.",
+        "minutes_after": 15,
+    },
+    {
+        "title": "Notification worker error burst",
+        "author": DEMO_EMAIL,
+        "body": "Synthetic note. Delivery retries are still climbing in the latest samples.",
+        "minutes_after": 10,
+    },
+]
+
 
 def _windows(events: list[tuple[float, str, float]], n_samples: int) -> list[dict]:
     windows = []
@@ -242,6 +308,7 @@ def seed_if_empty(db: Session) -> None:
     if _count(db, Service) > 0:
         if load_bundle() is None:
             _refit_from_db(db)
+        _ensure_product_layer(db)
         return
 
     rng = np.random.default_rng(42)
@@ -375,6 +442,59 @@ def seed_if_empty(db: Session) -> None:
         SAMPLES,
         grouped,
     )
+    _ensure_product_layer(db)
+
+
+def _ensure_slos(db: Session) -> None:
+    services = list(db.scalars(select(Service)).all())
+    existing = set(db.scalars(select(ServiceSlo.service_id)).all())
+    for service in services:
+        if service.id in existing:
+            continue
+        target = SLO_TARGETS.get(service.name, DEFAULT_SLO)
+        db.add(
+            ServiceSlo(
+                service_id=service.id,
+                latency_ms=target["latency_ms"],
+                error_rate=target["error_rate"],
+            )
+        )
+
+
+def _ensure_alert_rules(db: Session) -> None:
+    if _count(db, AlertRule) > 0:
+        return
+    for spec in ALERT_RULES:
+        db.add(AlertRule(**spec))
+
+
+def _ensure_comments(db: Session) -> None:
+    if _count(db, IncidentComment) > 0:
+        return
+    by_title = {item.title: item for item in db.scalars(select(Incident)).all()}
+    for spec in SEEDED_COMMENTS:
+        incident = by_title.get(spec["title"])
+        if incident is None:
+            continue
+        db.add(
+            IncidentComment(
+                incident_id=incident.id,
+                author=spec["author"],
+                body=spec["body"],
+                ts=incident.created_at + timedelta(minutes=spec["minutes_after"]),
+            )
+        )
+
+
+def _ensure_product_layer(db: Session) -> None:
+    """Fill SLO targets, alert rules, and seed comments, then evaluate rules."""
+    _ensure_slos(db)
+    _ensure_alert_rules(db)
+    _ensure_comments(db)
+    db.commit()
+    opened = evaluate_alert_rules(db)
+    if opened:
+        log.info("Opened %s synthetic alerts from seeded rules", len(opened))
 
 
 def _refit_from_db(db: Session) -> None:

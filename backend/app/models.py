@@ -36,6 +36,7 @@ class Service(Base):
     metrics: Mapped[list[MetricSample]] = relationship(back_populates="service")
     anomalies: Mapped[list[Anomaly]] = relationship(back_populates="service")
     incidents: Mapped[list[Incident]] = relationship(back_populates="service")
+    slo: Mapped[ServiceSlo | None] = relationship(back_populates="service", uselist=False)
 
 
 class MetricSample(Base):
@@ -81,3 +82,58 @@ class Incident(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 
     service: Mapped[Service] = relationship(back_populates="incidents")
+    comments: Mapped[list[IncidentComment]] = relationship(back_populates="incident")
+
+
+class ServiceSlo(Base):
+    """Seeded latency and error-rate targets for one synthetic service."""
+
+    __tablename__ = "service_slos"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    service_id: Mapped[int] = mapped_column(ForeignKey("services.id"), unique=True, nullable=False)
+    latency_ms: Mapped[float] = mapped_column(Float, nullable=False)
+    error_rate: Mapped[float] = mapped_column(Float, nullable=False)
+
+    service: Mapped[Service] = relationship(back_populates="slo")
+
+
+class AlertRule(Base):
+    __tablename__ = "alert_rules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    metric: Mapped[str] = mapped_column(String(40), nullable=False)
+    comparator: Mapped[str] = mapped_column(String(8), nullable=False)
+    threshold: Mapped[float] = mapped_column(Float, nullable=False)
+    consecutive: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    alerts: Mapped[list[Alert]] = relationship(back_populates="rule")
+
+
+class Alert(Base):
+    __tablename__ = "alerts"
+    __table_args__ = (Index("ix_alert_service_rule_status", "service_id", "rule_id", "status"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    service_id: Mapped[int] = mapped_column(ForeignKey("services.id"), nullable=False)
+    rule_id: Mapped[int] = mapped_column(ForeignKey("alert_rules.id"), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="open")
+    opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    acked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    service: Mapped[Service] = relationship()
+    rule: Mapped[AlertRule] = relationship(back_populates="alerts")
+
+
+class IncidentComment(Base):
+    __tablename__ = "incident_comments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    incident_id: Mapped[int] = mapped_column(ForeignKey("incidents.id"), nullable=False, index=True)
+    author: Mapped[str] = mapped_column(String(255), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+    incident: Mapped[Incident] = relationship(back_populates="comments")

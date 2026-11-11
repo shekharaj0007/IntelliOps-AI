@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from backend.app.anomaly import failure_risk_threshold, get_bundle, score_failure_risk
-from backend.app.models import Anomaly, Incident, MetricSample, Service
+from backend.app.models import Alert, AlertRule, Anomaly, Incident, IncidentComment, MetricSample, Service
 
 
 def iso(value: datetime) -> str:
@@ -90,11 +90,22 @@ def anomaly_dict(anomaly: Anomaly, service: Service) -> dict:
     }
 
 
+def comment_dict(comment: IncidentComment) -> dict:
+    return {
+        "id": comment.id,
+        "incident_id": comment.incident_id,
+        "author": comment.author,
+        "body": comment.body,
+        "ts": iso(comment.ts),
+    }
+
+
 def incident_dict(
     incident: Incident,
     service: Service | None,
     similarity: float | None = None,
 ) -> dict:
+    comments = sorted(incident.comments, key=lambda item: item.ts)
     payload = {
         "id": incident.id,
         "title": incident.title,
@@ -105,10 +116,29 @@ def incident_dict(
         "summary": incident.summary,
         "rca_text": incident.rca_text,
         "created_at": iso(incident.created_at),
+        "comments": [comment_dict(item) for item in comments],
     }
     if similarity is not None:
         payload["similarity"] = round(float(similarity), 4)
     return payload
+
+
+def alert_dict(alert: Alert, service: Service, rule: AlertRule) -> dict:
+    return {
+        "id": alert.id,
+        "service_id": alert.service_id,
+        "service_name": service.name,
+        "region": service.region,
+        "rule_id": alert.rule_id,
+        "rule_name": rule.name,
+        "metric": rule.metric,
+        "comparator": rule.comparator,
+        "threshold": rule.threshold,
+        "consecutive": rule.consecutive,
+        "status": alert.status,
+        "opened_at": iso(alert.opened_at),
+        "summary": alert.summary,
+    }
 
 
 def open_counts(db: Session) -> dict[int, int]:

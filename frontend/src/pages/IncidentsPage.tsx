@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ApiError, createIncident, generateRca, loadIncidents, loadServices, searchSimilar } from "../api";
+import { addComment, ApiError, createIncident, generateRca, loadIncidents, loadServices, searchSimilar } from "../api";
 import { formatTime } from "../format";
 import type { FleetService, Incident, RcaResult } from "../types";
 
@@ -17,6 +17,8 @@ export function IncidentsPage() {
   const [rca, setRca] = useState<RcaResult | null>(null);
   const [query, setQuery] = useState("latency cliff");
   const [similar, setSimilar] = useState<Incident[]>([]);
+  const [drafts, setDrafts] = useState<Record<number, string>>({});
+  const [commentBusy, setCommentBusy] = useState<number | null>(null);
 
   async function reload() {
     const [incidentBody, serviceBody] = await Promise.all([loadIncidents(), loadServices()]);
@@ -77,6 +79,24 @@ export function IncidentsPage() {
     }
   }
 
+  async function onComment(event: FormEvent, incidentId: number) {
+    event.preventDefault();
+    const body = (drafts[incidentId] ?? "").trim();
+    if (!body) return;
+    setCommentBusy(incidentId);
+    setError("");
+    try {
+      await addComment(incidentId, body);
+      setDrafts((current) => ({ ...current, [incidentId]: "" }));
+      await reload();
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) return;
+      setError(err instanceof Error ? err.message : "Could not add the comment");
+    } finally {
+      setCommentBusy(null);
+    }
+  }
+
   async function onSearch(event: FormEvent) {
     event.preventDefault();
     setError("");
@@ -113,6 +133,40 @@ export function IncidentsPage() {
                     <span className="mono"> · {formatTime(incident.created_at)}</span>
                   </p>
                   <p>{incident.summary}</p>
+                  <div className="comments">
+                    <div className="comment-label">Comments</div>
+                    {(incident.comments ?? []).length === 0 ? (
+                      <p className="muted">No comments yet.</p>
+                    ) : (
+                      <ul className="comment-list">
+                        {(incident.comments ?? []).map((comment) => (
+                          <li key={comment.id}>
+                            <div className="mono muted">
+                              {comment.author} · {formatTime(comment.ts)}
+                            </div>
+                            <p>{comment.body}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <form className="comment-form" onSubmit={(event) => onComment(event, incident.id)}>
+                      <label>
+                        Add a comment
+                        <textarea
+                          value={drafts[incident.id] ?? ""}
+                          onChange={(event) =>
+                            setDrafts((current) => ({ ...current, [incident.id]: event.target.value }))
+                          }
+                          rows={2}
+                          maxLength={2000}
+                          placeholder="Synthetic note for this incident"
+                        />
+                      </label>
+                      <button type="submit" className="ghost" disabled={commentBusy === incident.id || !(drafts[incident.id] ?? "").trim()}>
+                        {commentBusy === incident.id ? "Saving…" : "Add comment"}
+                      </button>
+                    </form>
+                  </div>
                   {incident.rca_text ? <pre className="rca">{incident.rca_text}</pre> : null}
                   <button type="button" className="ghost" disabled={rcaBusy === incident.id} onClick={() => onRca(incident.id)}>
                     {rcaBusy === incident.id ? "Writing RCA…" : "Generate RCA"}

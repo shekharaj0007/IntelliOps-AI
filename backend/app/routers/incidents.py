@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session
 
 from backend.app.database import get_db
 from backend.app.deps import get_current_user
-from backend.app.insights import incident_dict
-from backend.app.models import Anomaly, Incident, Service
+from backend.app.insights import comment_dict, incident_dict
+from backend.app.models import Anomaly, Incident, IncidentComment, Service, User, utcnow
 from backend.app.rca import playbook_rca, rank_similar
 
 router = APIRouter(
@@ -23,6 +23,10 @@ class IncidentIn(BaseModel):
     severity: str
     service_id: int
     summary: str = Field(min_length=3)
+
+
+class CommentIn(BaseModel):
+    body: str = Field(min_length=1, max_length=2000)
 
 
 def _services(db: Session) -> dict[int, Service]:
@@ -79,6 +83,31 @@ def similar_incidents(q: str, db: Session = Depends(get_db)):
             for item, score in ranked
         ],
     }
+
+
+@router.post("/{incident_id}/comments")
+def add_comment(
+    incident_id: int,
+    body: CommentIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    incident = db.get(Incident, incident_id)
+    if incident is None:
+        raise HTTPException(status_code=404, detail="Incident not found")
+    text = body.body.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Comment is empty")
+    comment = IncidentComment(
+        incident_id=incident.id,
+        author=user.email,
+        body=text,
+        ts=utcnow(),
+    )
+    db.add(comment)
+    db.commit()
+    db.refresh(comment)
+    return comment_dict(comment)
 
 
 @router.post("/{incident_id}/rca")

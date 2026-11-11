@@ -1,5 +1,5 @@
 import { FormEvent, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { ApiError, getToken, login } from "../api";
 
 export function LoginPage() {
@@ -60,6 +60,9 @@ export function LoginPage() {
         </button>
         <p className="hint">
           Demo operator <span className="mono">operator@intelliops.ai</span> / <span className="mono">operator123</span>
+        </p>
+        <p className="hint">
+          <Link to="/status">Public status</Link> is readable without signing in. It uses the same synthetic samples.
         </p>
       </form>
     </div>

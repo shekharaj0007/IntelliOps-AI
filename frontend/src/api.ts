@@ -1,4 +1,4 @@
-import type { Incident, Overview, RcaResult, ServiceDetail } from "./types";
+import type { Incident, IncidentComment, Overview, RcaResult, ServiceDetail, StatusFeed } from "./types";
 
 const TOKEN_KEY = "intelliops_token";
 const EMAIL_KEY = "intelliops_email";
@@ -82,11 +82,33 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   return (await response.json()) as T;
 }
 
+export async function publicGet<T>(path: string): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(path);
+  } catch {
+    throw new ApiError(0, "Cannot reach the API. Start the backend on 127.0.0.1:8000.");
+  }
+  if (!response.ok) {
+    throw new ApiError(response.status, await readDetail(response));
+  }
+  return (await response.json()) as T;
+}
+
 export const loadOverview = () => api<Overview>("/api/overview");
+export const loadStatus = () => publicGet<StatusFeed>("/api/status");
 export const loadService = (id: number) => api<ServiceDetail>(`/api/services/${id}`);
 export const loadServices = () => api<{ data_origin: string; services: Overview["fleet"] }>("/api/services");
 export const loadIncidents = () => api<{ data_origin: string; incidents: Incident[] }>("/api/incidents");
 export const ackAnomaly = (id: number) => api(`/api/anomalies/${id}/ack`, { method: "POST" });
+export const ackAlert = (id: number) => api(`/api/alerts/${id}/ack`, { method: "POST" });
+
+export function addComment(id: number, body: string): Promise<IncidentComment> {
+  return api<IncidentComment>(`/api/incidents/${id}/comments`, {
+    method: "POST",
+    body: JSON.stringify({ body }),
+  });
+}
 
 export function createIncident(body: {
   title: string;

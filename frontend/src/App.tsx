@@ -6,6 +6,7 @@ import { IncidentsPage } from "./pages/IncidentsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { ServicePage } from "./pages/ServicePage";
+import { StatusPage } from "./pages/StatusPage";
 
 function RequireAuth({ children }: { children: ReactElement }) {
   if (!getToken()) return <Navigate to="/login" replace />;
@@ -16,6 +17,7 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/status" element={<StatusPage />} />
       <Route
         path="/"
         element={

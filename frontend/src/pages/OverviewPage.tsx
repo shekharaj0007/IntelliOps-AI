@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ackAnomaly, ApiError, loadOverview } from "../api";
-import { formatRisk, formatTime } from "../format";
+import { ackAlert, ackAnomaly, ApiError, loadOverview } from "../api";
+import { formatErrorPct, formatLatency, formatRisk, formatTime } from "../format";
 import type { Overview } from "../types";
 
 export function OverviewPage() {
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [busyAlertId, setBusyAlertId] = useState<number | null>(null);
 
   async function load() {
     try {
@@ -35,6 +36,19 @@ export function OverviewPage() {
     };
   }, []);
 
+  async function ackAlertRow(id: number) {
+    setBusyAlertId(id);
+    try {
+      await ackAlert(id);
+      await load();
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) return;
+      setError(err instanceof Error ? err.message : "Could not acknowledge the alert");
+    } finally {
+      setBusyAlertId(null);
+    }
+  }
+
   async function ack(id: number) {
     setBusyId(id);
     try {
@@ -59,6 +73,99 @@ export function OverviewPage() {
         <Stat label="Open anomalies" value={String(data.counts.open_anomalies)} tone={data.counts.open_anomalies ? "critical" : "ok"} />
         <Stat label="Acked" value={String(data.counts.acked_anomalies)} />
         <Stat label="Open incidents" value={String(data.counts.open_incidents)} tone={data.counts.open_incidents ? "warn" : "ok"} />
+        <Stat label="SLO breaches" value={String(data.counts.slo_breaches)} tone={data.counts.slo_breaches ? "critical" : "ok"} />
+        <Stat label="Open alerts" value={String(data.counts.open_alerts)} tone={data.counts.open_alerts ? "warn" : "ok"} />
+      </section>
+
+      <section>
+        <h2>SLO, last {data.slo_window_hours} hours</h2>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Service</th>
+                <th>Latency</th>
+                <th>Error rate</th>
+                <th>Window</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.slos.map((slo) => (
+                <tr key={slo.service_id} className={slo.breaching ? "row-breach" : undefined}>
+                  <td>
+                    <Link to={`/services/${slo.service_id}`}>{slo.name}</Link>
+                    <div className="mono muted">{slo.region}</div>
+                  </td>
+                  <td className="mono">
+                    {formatLatency(slo.latency_ms_observed)}
+                    <span className="muted"> / {formatLatency(slo.latency_ms_target)}</span>
+                  </td>
+                  <td className="mono">
+                    {formatErrorPct(slo.error_rate_observed)}
+                    <span className="muted"> / {formatErrorPct(slo.error_rate_target)}</span>
+                  </td>
+                  <td>
+                    {slo.breaching ? (
+                      <span className="band band-critical">{slo.breach_on.join(", ")}</span>
+                    ) : (
+                      <span className="status status-resolved">inside</span>
+                    )}
+                    <div className="mono muted">{slo.samples} samples</div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="hint">
+          Observed values are means of the last {data.slo_window_hours} hours of synthetic samples. Targets are seeded.
+          A breach is a mean above the target. These are not measured production SLOs.
+        </p>
+      </section>
+
+      <section>
+        <h2>Open alerts</h2>
+        {data.open_alerts.length === 0 ? (
+          <p className="muted">No open alerts. Rules are checked against the latest synthetic samples when the API starts.</p>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>Service</th>
+                  <th>Rule</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.open_alerts.map((alert) => (
+                  <tr key={alert.id}>
+                    <td className="mono">{formatTime(alert.opened_at)}</td>
+                    <td>
+                      <Link to={`/services/${alert.service_id}`}>{alert.service_name}</Link>
+                      <div className="mono muted">{alert.region}</div>
+                    </td>
+                    <td>
+                      <strong>{alert.rule_name}</strong>
+                      <div className="muted">{alert.summary}</div>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="ghost"
+                        disabled={busyAlertId === alert.id}
+                        onClick={() => ackAlertRow(alert.id)}
+                      >
+                        {busyAlertId === alert.id ? "Ack…" : "Ack"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <section>

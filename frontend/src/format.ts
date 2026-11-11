@@ -13,3 +13,13 @@ export function formatTime(iso: string): string {
 export function formatRisk(value: number): string {
   return value.toFixed(2);
 }
+
+export function formatLatency(value: number | null): string {
+  if (value == null) return "n/a";
+  return `${Math.round(value)} ms`;
+}
+
+export function formatErrorPct(value: number | null): string {
+  if (value == null) return "n/a";
+  return `${(value * 100).toFixed(2)}%`;
+}

@@ -28,6 +28,7 @@ export function Shell({ children }: { children: ReactNode }) {
             Overview
           </NavLink>
           <NavLink to="/incidents">Incidents</NavLink>
+          <NavLink to="/status">Status</NavLink>
         </nav>
         <div className="who">
           <span className="badge">Synthetic</span>

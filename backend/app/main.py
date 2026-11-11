@@ -13,7 +13,7 @@ from backend.app.anomaly import model_loaded
 from backend.app.config import CORS_ORIGINS, DATA_DIR, DATABASE_URL, MODELS_DIR
 from backend.app.database import SessionLocal, engine
 from backend.app.models import Anomaly, Base
-from backend.app.routers import anomalies, auth, incidents, overview, services
+from backend.app.routers import alerts, anomalies, auth, incidents, overview, services, status
 from backend.app.seed import seed_if_empty
 
 log = logging.getLogger("intelliops")
@@ -121,3 +121,5 @@ app.include_router(services.router)
 app.include_router(anomalies.router)
 app.include_router(incidents.router)
 app.include_router(overview.router)
+app.include_router(alerts.router)
+app.include_router(status.router)

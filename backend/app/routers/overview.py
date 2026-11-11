@@ -5,13 +5,15 @@ from sqlalchemy.orm import Session
 from backend.app.database import get_db
 from backend.app.deps import get_current_user
 from backend.app.insights import (
+    alert_dict,
     anomaly_dict,
     current_risk_threshold,
     load_recent_metrics,
     open_counts,
     risk_from_samples,
 )
-from backend.app.models import Anomaly, Incident, Service
+from backend.app.models import Alert, AlertRule, Anomaly, Incident, Service
+from backend.app.slo import WINDOW_HOURS, report_for_services
 
 router = APIRouter(
     prefix="/api",
@@ -38,6 +40,17 @@ def overview(db: Session = Depends(get_db)):
         or 0
     )
     threshold = current_risk_threshold()
+    slo_rows = report_for_services(db, services)
+    slo_breaches = [row for row in slo_rows if row["breaching"]]
+    open_alert_rows = list(
+        db.scalars(select(Alert).where(Alert.status == "open").order_by(Alert.opened_at.desc())).all()
+    )
+    rules = {rule.id: rule for rule in db.scalars(select(AlertRule)).all()}
+    open_alerts = [
+        alert_dict(alert, service_by_id[alert.service_id], rules[alert.rule_id])
+        for alert in open_alert_rows
+        if alert.service_id in service_by_id and alert.rule_id in rules
+    ]
 
     fleet = []
     regions: dict[str, dict] = {}
@@ -92,12 +105,17 @@ def overview(db: Session = Depends(get_db)):
     return {
         "data_origin": "synthetic",
         "risk_threshold": round(threshold, 4),
+        "slo_window_hours": WINDOW_HOURS,
         "counts": {
             "services": len(services),
             "open_anomalies": len(anomaly_payload),
             "acked_anomalies": int(acked),
             "open_incidents": int(open_incidents),
+            "slo_breaches": len(slo_breaches),
+            "open_alerts": len(open_alerts),
         },
+        "slos": slo_rows,
+        "open_alerts": open_alerts,
         "regions": sorted(regions.values(), key=lambda item: item["region"]),
         "fleet": fleet,
         "open_anomalies": anomaly_payload,

@@ -131,7 +131,7 @@ label { display: block; font-size: 0.86rem; color: var(--muted); }
   display: grid;
   gap: 0.75rem;
 }
-.stat-grid { grid-template-columns: repeat(4, 1fr); }
+.stat-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
 .region-grid, .chart-grid { grid-template-columns: repeat(3, 1fr); }
 .fleet-grid { grid-template-columns: repeat(3, 1fr); }
 .stat {
@@ -181,6 +181,52 @@ th { color: var(--muted); font-size: 0.75rem; letter-spacing: 0.06em; text-trans
 .status { font-family: var(--mono); font-size: 0.75rem; margin-left: 0.4rem; color: var(--muted); }
 .status-open { color: var(--red); }
 .status-acked, .status-resolved { color: var(--ok); }
+tr.row-breach td { background: rgba(240, 82, 82, 0.1); }
+.comment-label {
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.comment-list { list-style: none; padding: 0; margin: 0.35rem 0 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.comment-list li { background: #0d141d; border-radius: 4px; padding: 0.45rem 0.6rem; }
+.comment-list p { margin: 0.2rem 0 0; }
+.comment-form { display: flex; flex-direction: column; align-items: flex-start; gap: 0.45rem; margin-top: 0.55rem; }
+.comment-form label, .comment-form textarea { width: 100%; }
+.status-card {
+  width: min(680px, 100%);
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--amber);
+  border-radius: 8px;
+  padding: 1.3rem;
+}
+.status-card .brand { justify-content: flex-start; }
+.status-card .badge { margin-left: auto; }
+.status-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+.status-list li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 0.8rem;
+  align-items: center;
+  background: #0d141d;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+}
+.status-pill {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  padding: 0.12rem 0.5rem;
+}
+.status-up { color: var(--ok); border-color: var(--ok); }
+.status-degraded { color: var(--amber); border-color: var(--amber); }
+.status-down { color: var(--red); border-color: var(--red); }
 .risk-list, .anomaly-list, .incident-list, .similar-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.55rem; }
 .risk-list li, .anomaly-list li, .incident-list li {
   background: var(--bg-elev);
@@ -235,5 +281,5 @@ th { color: var(--muted); font-size: 0.75rem; letter-spacing: 0.06em; text-trans
   .topbar { flex-wrap: wrap; }
   .who { margin-left: 0; }
   .side { position: static; }
-  .risk-list li { grid-template-columns: 1fr; }
+  .risk-list li, .status-list li { grid-template-columns: 1fr; }
 }
