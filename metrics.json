@@ -1,0 +1,141 @@
+{
+  "data_origin": "synthetic",
+  "note": "Holdout scores were computed by backend.app.anomaly on a time-based split of the synthetic seed. They are not production measurements.",
+  "generated_at": "2026-11-11T10:27:56.658562+00:00",
+  "sklearn_version": "1.9.1",
+  "holdout": {
+    "holdout_fraction": 0.25,
+    "split": "last fraction of each service timeline",
+    "isolation_forest": {
+      "precision": 0.7777777777777778,
+      "recall": 0.6296296296296297,
+      "f1": 0.695906432748538,
+      "tp": 119,
+      "fp": 34,
+      "fn": 70,
+      "tn": 1073,
+      "n": 1296,
+      "n_positive": 189,
+      "average_precision": 0.805016840608215,
+      "roc_auc": 0.9516926915300898
+    },
+    "failure_risk_logreg": {
+      "precision": 0.4,
+      "recall": 0.48677248677248675,
+      "f1": 0.43914081145584727,
+      "tp": 92,
+      "fp": 138,
+      "fn": 97,
+      "tn": 969,
+      "n": 1296,
+      "n_positive": 189,
+      "average_precision": 0.555551188571399,
+      "roc_auc": 0.749745486872858,
+      "accuracy": 0.8186728395061729,
+      "threshold": 0.4999957172007433,
+      "train_normal_mean_proba": 0.26383221268038604,
+      "train_anomalous_mean_proba": 0.7361592217211006,
+      "threshold_note": "Threshold is the midpoint of the training-split mean probabilities for normal and anomalous points. It was not fit on the holdout."
+    }
+  },
+  "samples_per_service": 864,
+  "step_minutes": 5,
+  "services": [
+    "api-gateway",
+    "checkout-api",
+    "auth-service",
+    "inventory-db",
+    "search-indexer",
+    "notification-worker"
+  ],
+  "injected_windows": {
+    "api-gateway": [
+      {
+        "start": 192,
+        "end": 204,
+        "kind": "cpu"
+      },
+      {
+        "start": 696,
+        "end": 732,
+        "kind": "latency"
+      }
+    ],
+    "checkout-api": [
+      {
+        "start": 336,
+        "end": 348,
+        "kind": "error"
+      },
+      {
+        "start": 792,
+        "end": 864,
+        "kind": "cpu"
+      }
+    ],
+    "auth-service": [
+      {
+        "start": 240,
+        "end": 252,
+        "kind": "latency"
+      },
+      {
+        "start": 672,
+        "end": 687,
+        "kind": "error"
+      }
+    ],
+    "inventory-db": [
+      {
+        "start": 432,
+        "end": 447,
+        "kind": "cpu"
+      },
+      {
+        "start": 744,
+        "end": 756,
+        "kind": "latency"
+      }
+    ],
+    "search-indexer": [
+      {
+        "start": 288,
+        "end": 300,
+        "kind": "error"
+      },
+      {
+        "start": 720,
+        "end": 738,
+        "kind": "latency"
+      }
+    ],
+    "notification-worker": [
+      {
+        "start": 480,
+        "end": 492,
+        "kind": "cpu"
+      },
+      {
+        "start": 828,
+        "end": 864,
+        "kind": "error"
+      }
+    ]
+  },
+  "grouped_anomalies_on_full_history": 14,
+  "grouped_anomalies_note": "Count of grouped anomalies from the model refit on the full synthetic history. This is not a holdout score.",
+  "production_risk_threshold": {
+    "note": "Midpoint of mean predicted probabilities on the full synthetic fit. Used by the API to mark services at risk. Not a holdout metric.",
+    "value": 0.49996,
+    "full_fit_normal_mean_proba": 0.367365,
+    "full_fit_anomalous_mean_proba": 0.632555
+  },
+  "latest_failure_risk": {
+    "api-gateway": 0.4115,
+    "checkout-api": 0.5249,
+    "auth-service": 0.2076,
+    "inventory-db": 0.3804,
+    "search-indexer": 0.3929,
+    "notification-worker": 1.0
+  }
+}
